@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PARTICLE BURST</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#050510;font-family:'Orbitron',monospace;color:#fff;touch-action:none;user-select:none;}
+
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;}
+
+/* scanline */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);}
+
+/* ══════════════════════════════════════
+   OVERLAY BASE
+══════════════════════════════════════ */
+.overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+  background:rgba(5,5,16,0.92);backdrop-filter:blur(12px);transition:opacity .35s;}
+.overlay.hidden{opacity:0;pointer-events:none;}
+
+.panel{
+  background:linear-gradient(145deg,rgba(0,245,255,0.05),rgba(255,45,120,0.04));
+  border:1px solid rgba(0,245,255,0.2);
+  border-radius:16px;
+  padding:clamp(24px,5vw,48px) clamp(28px,6vw,56px);
+  text-align:center;
+  max-width:min(480px,90vw);
+  width:100%;
+  box-shadow:0 0 60px rgba(0,245,255,0.08),inset 0 0 40px rgba(0,0,0,0.3);
+  position:relative;
+}
+.panel::before,.panel::after{
+  content:'';position:absolute;width:clamp(16px,3vw,26px);height:clamp(16px,3vw,26px);
+  border-color:#00f5ff;border-style:solid;opacity:.5;
+}
+.panel::before{top:10px;left:10px;border-width:2px 0 0 2px;}
+.panel::after {bottom:10px;right:10px;border-width:0 2px 2px 0;}
+
+.panel-title{
+  font-size:clamp(22px,5.5vw,42px);font-weight:900;letter-spacing:.2em;
+  color:#00f5ff;text-shadow:0 0 20px #00f5ff,0 0 50px rgba(0,245,255,.35);
+  margin-bottom:6px;line-height:1.1;
+}
+.panel-sub{
+  font-family:'Space Mono',monospace;font-size:clamp(8px,1.3vw,11px);
+  color:rgba(0,245,255,.45);letter-spacing:.35em;margin-bottom:clamp(20px,4vw,32px);
+}
+
+/* difficulty buttons */
+.diff-row{display:flex;gap:10px;justify-content:center;margin-bottom:clamp(18px,3.5vw,28px);flex-wrap:wrap;}
+.diff-btn{
+  flex:1;min-width:80px;max-width:130px;
+  padding:clamp(8px,1.5vw,13px) 10px;
+  border-radius:8px;border:1.5px solid;
+  font-family:'Orbitron',monospace;font-size:clamp(10px,1.8vw,14px);font-weight:700;
+  letter-spacing:.12em;cursor:pointer;background:transparent;
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.diff-btn::after{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;}
+.diff-btn:hover::after,.diff-btn.active::after{opacity:1;}
+
+.diff-btn.easy  {border-color:#00ffb3;color:#00ffb3;}
+.diff-btn.easy::after{background:rgba(0,255,179,.12);}
+.diff-btn.easy.active,.diff-btn.easy:hover{box-shadow:0 0 18px rgba(0,255,179,.4);background:rgba(0,255,179,.08);}
+
+.diff-btn.medium{border-color:#ffe600;color:#ffe600;}
+.diff-btn.medium::after{background:rgba(255,230,0,.12);}
+.diff-btn.medium.active,.diff-btn.medium:hover{box-shadow:0 0 18px rgba(255,230,0,.4);background:rgba(255,230,0,.08);}
+
+.diff-btn.hard  {border-color:#ff2d78;color:#ff2d78;}
+.diff-btn.hard::after{background:rgba(255,45,120,.12);}
+.diff-btn.hard.active,.diff-btn.hard:hover{box-shadow:0 0 18px rgba(255,45,120,.4);background:rgba(255,45,120,.08);}
+
+.diff-desc{
+  font-family:'Space Mono',monospace;font-size:clamp(8px,1.1vw,10px);
+  color:rgba(255,255,255,.35);margin-top:5px;letter-spacing:.05em;margin-bottom:clamp(18px,3.5vw,28px);
+  min-height:14px;transition:color .2s;
+}
+
+/* main action button */
+.btn-primary{
+  display:inline-block;width:100%;
+  padding:clamp(12px,2.2vw,18px);
+  background:linear-gradient(135deg,#00f5ff,#00a8cc);
+  border:none;border-radius:8px;
+  font-family:'Orbitron',monospace;font-size:clamp(13px,2.2vw,17px);font-weight:900;
+  letter-spacing:.2em;color:#050510;cursor:pointer;
+  box-shadow:0 0 28px rgba(0,245,255,.45);
+  transition:transform .15s,box-shadow .15s;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(0,245,255,.65);}
+.btn-primary:active{transform:translateY(0);}
+.btn-primary.danger{background:linear-gradient(135deg,#ff2d78,#cc0044);box-shadow:0 0 28px rgba(255,45,120,.45);}
+.btn-primary.danger:hover{box-shadow:0 0 40px rgba(255,45,120,.65);}
+
+.btn-row{display:flex;gap:10px;margin-top:12px;}
+.btn-row .btn-primary{font-size:clamp(10px,1.6vw,13px);}
+
+/* score display inside overlay */
+.score-display{
+  background:rgba(0,0,0,.3);border:1px solid rgba(0,245,255,.12);
+  border-radius:8px;padding:12px 20px;margin-bottom:20px;
+  display:flex;justify-content:space-around;gap:20px;
+}
+.sd-item{display:flex;flex-direction:column;gap:3px;align-items:center;}
+.sd-lbl{font-family:'Space Mono',monospace;font-size:clamp(7px,.9vw,9px);color:rgba(255,255,255,.35);letter-spacing:.2em;}
+.sd-val{font-size:clamp(18px,3.5vw,28px);font-weight:900;color:#ffe600;text-shadow:0 0 10px rgba(255,230,0,.5);}
+
+/* ══════════════════════════════════════
+   HUD
+══════════════════════════════════════ */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10;padding:clamp(10px,2.5vw,20px);display:flex;flex-direction:column;justify-content:space-between;}
+
+#top{display:flex;justify-content:space-between;align-items:flex-start;}
+#logo h1{font-size:clamp(12px,2.5vw,20px);font-weight:900;letter-spacing:.25em;color:#00f5ff;text-shadow:0 0 14px #00f5ff,0 0 35px rgba(0,245,255,.35);line-height:1;}
+#logo p{font-family:'Space Mono',monospace;font-size:clamp(7px,1vw,9px);color:rgba(0,245,255,.4);letter-spacing:.3em;margin-top:3px;}
+
+#stats{display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+.pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(0,245,255,.14);border-radius:5px;padding:clamp(3px,.8vw,6px) clamp(8px,1.8vw,14px);backdrop-filter:blur(8px);}
+.pill .lbl{font-family:'Space Mono',monospace;font-size:clamp(6px,.85vw,9px);color:rgba(255,255,255,.35);letter-spacing:.2em;}
+.pill .val{font-size:clamp(14px,3vw,24px);font-weight:900;color:#ffe600;text-shadow:0 0 10px rgba(255,230,0,.55);min-width:3ch;text-align:right;transition:transform .1s;}
+.pill .val.pop{transform:scale(1.38);}
+
+/* pause btn */
+#pause-btn{
+  pointer-events:all;
+  background:rgba(255,255,255,.04);border:1px solid rgba(0,245,255,.14);
+  border-radius:6px;padding:6px 12px;cursor:pointer;
+  font-family:'Space Mono',monospace;font-size:clamp(8px,1.1vw,10px);
+  color:rgba(0,245,255,.7);letter-spacing:.1em;transition:all .2s;
+  backdrop-filter:blur(8px);
+}
+#pause-btn:hover{background:rgba(0,245,255,.08);color:#00f5ff;}
+
+/* diff badge */
+#diff-badge{
+  font-family:'Space Mono',monospace;font-size:clamp(7px,.9vw,9px);
+  letter-spacing:.15em;padding:3px 9px;border-radius:4px;border:1px solid;
+  margin-top:5px;opacity:.7;
+}
+#diff-badge.easy{color:#00ffb3;border-color:rgba(0,255,179,.3);}
+#diff-badge.medium{color:#ffe600;border-color:rgba(255,230,0,.3);}
+#diff-badge.hard{color:#ff2d78;border-color:rgba(255,45,120,.3);}
+
+#bottom{display:flex;justify-content:space-between;align-items:flex-end;}
+#lvlblock{display:flex;flex-direction:column;gap:5px;min-width:clamp(90px,20vw,170px);}
+#lvlhead{display:flex;justify-content:space-between;}
+#lvllbl{font-family:'Space Mono',monospace;font-size:clamp(6px,.85vw,9px);color:rgba(255,255,255,.35);letter-spacing:.2em;}
+#lvlnum{font-size:clamp(10px,1.8vw,14px);font-weight:900;color:#00f5ff;text-shadow:0 0 8px #00f5ff;}
+#xpbg{height:4px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+#xpfill{height:100%;width:0%;background:linear-gradient(90deg,#00f5ff,#ff2d78);border-radius:3px;transition:width .4s;box-shadow:0 0 7px #00f5ff;}
+#hint{font-family:'Space Mono',monospace;font-size:clamp(6px,.85vw,9px);color:rgba(255,255,255,.2);text-align:right;line-height:1.8;}
+
+/* timer bar */
+#timer-bar-wrap{
+  position:fixed;top:0;left:0;right:0;height:3px;z-index:15;background:rgba(255,255,255,.05);
+}
+#timer-bar{height:100%;width:100%;background:linear-gradient(90deg,#00f5ff,#ff2d78);transition:width .25s linear;box-shadow:0 0 8px #00f5ff;}
+
+/* COMBO */
+#combo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:20;text-align:center;opacity:0;}
+#combo.show{animation:cbpop .7s ease-out forwards;}
+#ctxt{font-size:clamp(24px,6.5vw,64px);font-weight:900;color:#ff2d78;text-shadow:0 0 20px #ff2d78,0 0 55px rgba(255,45,120,.4);letter-spacing:.1em;}
+#clbl{font-family:'Space Mono',monospace;font-size:clamp(8px,1.2vw,11px);color:rgba(255,255,255,.45);letter-spacing:.45em;}
+@keyframes cbpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}40%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}70%{transform:translate(-50%,-50%) scale(.96)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+
+/* MULT */
+#mult{position:fixed;bottom:clamp(50px,8vw,80px);right:clamp(10px,2.5vw,20px);z-index:10;pointer-events:none;background:rgba(255,255,255,.04);border:1px solid rgba(0,245,255,.14);border-radius:5px;padding:4px 11px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(8px);opacity:0;transition:opacity .3s;}
+#mult.show{opacity:1;}
+#multlbl{font-family:'Space Mono',monospace;font-size:clamp(6px,.85vw,9px);color:rgba(255,255,255,.35);letter-spacing:.2em;}
+#multval{font-size:clamp(12px,2vw,17px);font-weight:900;color:#ff2d78;text-shadow:0 0 10px #ff2d78;}
+
+/* corners */
+.corner{position:fixed;width:clamp(16px,3vw,28px);height:clamp(16px,3vw,28px);pointer-events:none;z-index:9;opacity:.4;}
+.corner svg{width:100%;height:100%;}
+.tl{top:clamp(5px,1vw,9px);left:clamp(5px,1vw,9px);}
+.tr{top:clamp(5px,1vw,9px);right:clamp(5px,1vw,9px);transform:scaleX(-1);}
+.bl{bottom:clamp(5px,1vw,9px);left:clamp(5px,1vw,9px);transform:scaleY(-1);}
+.br{bottom:clamp(5px,1vw,9px);right:clamp(5px,1vw,9px);transform:scale(-1);}
+
+/* float score */
+.fscore{position:fixed;pointer-events:none;z-index:30;font-family:'Orbitron',monospace;font-weight:900;animation:fup .85s ease-out forwards;}
+@keyframes fup{0%{opacity:1;transform:translateY(0) scale(1)}70%{opacity:1}100%{opacity:0;transform:translateY(-55px) scale(.7)}}
+
+/* ripple */
+.rip{position:fixed;border-radius:50%;pointer-events:none;z-index:5;transform:translate(-50%,-50%) scale(0);animation:ripout .45s ease-out forwards;}
+@keyframes ripout{to{transform:translate(-50%,-50%) scale(1);opacity:0;}}
+
+/* miss flash */
+@keyframes missflash{0%{background:rgba(255,45,120,0)}50%{background:rgba(255,45,120,0.07)}100%{background:rgba(255,45,120,0)}}
+.miss-flash{animation:missflash .3s ease-out;}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- CORNERS -->
+<div class="corner tl"><svg viewBox="0 0 36 36" fill="none"><path d="M1 35V1H35" stroke="#00f5ff" stroke-width="2"/></svg></div>
+<div class="corner tr"><svg viewBox="0 0 36 36" fill="none"><path d="M1 35V1H35" stroke="#00f5ff" stroke-width="2"/></svg></div>
+<div class="corner bl"><svg viewBox="0 0 36 36" fill="none"><path d="M1 35V1H35" stroke="#00f5ff" stroke-width="2"/></svg></div>
+<div class="corner br"><svg viewBox="0 0 36 36" fill="none"><path d="M1 35V1H35" stroke="#00f5ff" stroke-width="2"/></svg></div>
+
+<!-- TIMER BAR -->
+<div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="top">
+    <div id="logo">
+      <h1>PARTICLE BURST</h1>
+      <p>// KLIK &amp; HANCURKAN</p>
+      <div id="diff-badge" class="medium">MEDIUM</div>
+    </div>
+    <div id="stats">
+      <div class="pill"><span class="lbl">SCORE</span><span class="val" id="sv">0</span></div>
+      <div class="pill"><span class="lbl">BEST</span><span class="val" id="bv">0</span></div>
+      <button id="pause-btn">⏸ PAUSE</button>
+    </div>
+  </div>
+  <div id="bottom">
+    <div id="lvlblock">
+      <div id="lvlhead"><span id="lvllbl">LEVEL</span><span id="lvlnum">01</span></div>
+      <div id="xpbg"><div id="xpfill"></div></div>
+    </div>
+    <div id="hint">KLIK partikel untuk hancurkan<br>Cepat → COMBO × lebih besar</div>
+  </div>
+</div>
+
+<div id="combo"><div id="ctxt"></div><div id="clbl"></div></div>
+<div id="mult"><span id="multlbl">MULT</span><span id="multval">x1</span></div>
+
+<!-- ══════════ START SCREEN ══════════ -->
+<div class="overlay" id="start-overlay">
+  <div class="panel">
+    <div class="panel-title">PARTICLE<br>BURST</div>
+    <div class="panel-sub">// PILIH KESULITAN &amp; MULAI</div>
+
+    <div class="diff-row">
+      <button class="diff-btn easy"   onclick="selectDiff('easy')">EASY</button>
+      <button class="diff-btn medium active" onclick="selectDiff('medium')">MEDIUM</button>
+      <button class="diff-btn hard"   onclick="selectDiff('hard')">HARD</button>
+    </div>
+    <div class="diff-desc" id="start-diff-desc">Partikel bergerak normal · Waktu 60 detik</div>
+
+    <button class="btn-primary" id="start-btn" onclick="startGame()">▶ MULAI GAME</button>
+  </div>
+</div>
+
+<!-- ══════════ PAUSE SCREEN ══════════ -->
+<div class="overlay hidden" id="pause-overlay">
+  <div class="panel">
+    <div class="panel-title">PAUSED</div>
+    <div class="panel-sub">// GAME DIJEDA</div>
+
+    <div class="score-display">
+      <div class="sd-item"><span class="sd-lbl">SCORE</span><span class="sd-val" id="pause-score">0</span></div>
+      <div class="sd-item"><span class="sd-lbl">LEVEL</span><span class="sd-val" id="pause-level">01</span></div>
+    </div>
+
+    <div style="margin-bottom:14px;font-family:'Space Mono',monospace;font-size:clamp(8px,1.1vw,10px);color:rgba(255,255,255,.4);letter-spacing:.15em;">GANTI KESULITAN</div>
+    <div class="diff-row">
+      <button class="diff-btn easy"   id="pdiff-easy"   onclick="selectDiff('easy')">EASY</button>
+      <button class="diff-btn medium" id="pdiff-medium" onclick="selectDiff('medium')">MEDIUM</button>
+      <button class="diff-btn hard"   id="pdiff-hard"   onclick="selectDiff('hard')">HARD</button>
+    </div>
+    <div class="diff-desc" id="pause-diff-desc">Partikel bergerak normal · Waktu 60 detik</div>
+
+    <button class="btn-primary" onclick="resumeGame()">▶ LANJUTKAN</button>
+    <div class="btn-row">
+      <button class="btn-primary danger" onclick="restartGame()" style="background:linear-gradient(135deg,rgba(255,45,120,.2),rgba(255,45,120,.1));color:#ff2d78;border:1px solid rgba(255,45,120,.4);box-shadow:none;">🔄 RESTART</button>
+      <button class="btn-primary danger" onclick="backToMenu()" style="background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12);box-shadow:none;">⏹ MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ GAME OVER SCREEN ══════════ -->
+<div class="overlay hidden" id="gameover-overlay">
+  <div class="panel">
+    <div class="panel-title" style="color:#ff2d78;text-shadow:0 0 20px #ff2d78;">GAME<br>OVER</div>
+    <div class="panel-sub">// WAKTU HABIS!</div>
+
+    <div class="score-display">
+      <div class="sd-item"><span class="sd-lbl">SCORE</span><span class="sd-val" id="go-score">0</span></div>
+      <div class="sd-item"><span class="sd-lbl">BEST</span><span class="sd-val" id="go-best">0</span></div>
+      <div class="sd-item"><span class="sd-lbl">LEVEL</span><span class="sd-val" id="go-level">01</span></div>
+    </div>
+
+    <div class="diff-row">
+      <button class="diff-btn easy"   onclick="selectDiff('easy')">EASY</button>
+      <button class="diff-btn medium" onclick="selectDiff('medium')">MEDIUM</button>
+      <button class="diff-btn hard"   onclick="selectDiff('hard')">HARD</button>
+    </div>
+    <div class="diff-desc" id="go-diff-desc">Partikel bergerak normal · Waktu 60 detik</div>
+
+    <button class="btn-primary" onclick="restartGame()">🔄 MAIN LAGI</button>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn-primary" onclick="backToMenu()" style="background:transparent;color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.12);box-shadow:none;">⏹ MENU UTAMA</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CANVAS
+// ═══════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let W=0, H=0;
+function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+// ═══════════════════════════════════════════
+//  DIFFICULTY CONFIG
+// ═══════════════════════════════════════════
+const DIFF = {
+  easy:   { speedMult:.55, spawnInterval:700, maxOrbs:6,  timeLimit:90,  label:'EASY',   desc:'Partikel lambat · Santai · Waktu 90 detik' },
+  medium: { speedMult:1.0, spawnInterval:500, maxOrbs:9,  timeLimit:60,  label:'MEDIUM', desc:'Partikel bergerak normal · Waktu 60 detik' },
+  hard:   { speedMult:1.8, spawnInterval:320, maxOrbs:14, timeLimit:45,  label:'HARD',   desc:'Partikel super cepat · Waktu 45 detik' },
+};
+let currentDiff = 'medium';
+
+function selectDiff(d){
+  currentDiff = d;
+  // update all diff button groups
+  document.querySelectorAll('.diff-btn').forEach(b=> b.classList.remove('active'));
+  document.querySelectorAll('.diff-btn.'+d).forEach(b=> b.classList.add('active'));
+  // update descs
+  const desc = DIFF[d].desc;
+  ['start-diff-desc','pause-diff-desc','go-diff-desc'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent=desc;
+  });
+  // update diff badge
+  const badge = document.getElementById('diff-badge');
+  badge.textContent = DIFF[d].label;
+  badge.className = 'diff-badge '+d;
+}
+
+// ═══════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════
+let gameState = 'menu'; // menu | playing | paused | gameover
+let score=0, best=0;
+try{ best=+localStorage.getItem('pb')||0; }catch(_){}
+let level=1, xp=0, xpMax=10;
+let combo=0, comboTick=0, mult=1;
+const COMBO_MS=1800;
+let timeLeft=60;
+let timerInterval=null;
+
+const svEl = document.getElementById('sv');
+const bvEl = document.getElementById('bv');
+const lvEl = document.getElementById('lvlnum');
+const xpEl = document.getElementById('xpfill');
+const cbEl = document.getElementById('combo');
+const ctEl = document.getElementById('ctxt');
+const clEl = document.getElementById('clbl');
+const mtEl = document.getElementById('mult');
+const mvEl = document.getElementById('multval');
+const timerBarEl = document.getElementById('timer-bar');
+bvEl.textContent = best;
+
+// ═══════════════════════════════════════════
+//  OVERLAYS
+// ═══════════════════════════════════════════
+function showOverlay(id){
+  ['start-overlay','pause-overlay','gameover-overlay'].forEach(o=>{
+    document.getElementById(o).classList.add('hidden');
+  });
+  if(id) document.getElementById(id).classList.remove('hidden');
+}
+
+function startGame(){
+  score=0; level=1; xp=0; xpMax=10; combo=0; comboTick=0; mult=1;
+  svEl.textContent=0; lvEl.textContent='01'; xpEl.style.width='0%';
+  mtEl.classList.remove('show'); mvEl.textContent='x1';
+  orbs=[]; sparks=[]; rings=[];
+  spawnTimer=0;
+  timeLeft = DIFF[currentDiff].timeLimit;
+  updateTimerBar();
+  startTimer();
+  showOverlay(null);
+  gameState='playing';
+  // seed orbs
+  for(let i=0;i<5;i++) orbs.push(new Orb(true));
+}
+
+function resumeGame(){
+  showOverlay(null);
+  gameState='playing';
+  startTimer();
+}
+
+function pauseGame(){
+  if(gameState!=='playing') return;
+  gameState='paused';
+  stopTimer();
+  document.getElementById('pause-score').textContent = score;
+  document.getElementById('pause-level').textContent = String(level).padStart(2,'0');
+  // sync diff buttons in pause panel
+  document.querySelectorAll('#pause-overlay .diff-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('#pause-overlay .diff-btn.'+currentDiff)?.classList.add('active');
+  document.getElementById('pause-diff-desc').textContent = DIFF[currentDiff].desc;
+  showOverlay('pause-overlay');
+}
+
+function restartGame(){
+  stopTimer();
+  showOverlay(null);
+  startGame();
+}
+
+function backToMenu(){
+  stopTimer();
+  gameState='menu';
+  orbs=[]; sparks=[]; rings=[];
+  // sync diff on start screen
+  document.querySelectorAll('#start-overlay .diff-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('#start-overlay .diff-btn.'+currentDiff)?.classList.add('active');
+  document.getElementById('start-diff-desc').textContent = DIFF[currentDiff].desc;
+  showOverlay('start-overlay');
+}
+
+function gameOver(){
+  stopTimer();
+  gameState='gameover';
+  document.getElementById('go-score').textContent=score;
+  document.getElementById('go-best').textContent=best;
+  document.getElementById('go-level').textContent=String(level).padStart(2,'0');
+  // sync diff
+  document.querySelectorAll('#gameover-overlay .diff-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('#gameover-overlay .diff-btn.'+currentDiff)?.classList.add('active');
+  document.getElementById('go-diff-desc').textContent = DIFF[currentDiff].desc;
+  showOverlay('gameover-overlay');
+}
+
+// pause button
+document.getElementById('pause-btn').addEventListener('click', pauseGame);
+
+// ═══════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════
+function startTimer(){
+  stopTimer();
+  timerInterval = setInterval(()=>{
+    if(gameState!=='playing') return;
+    timeLeft--;
+    updateTimerBar();
+    if(timeLeft<=0){ timeLeft=0; updateTimerBar(); gameOver(); }
+  }, 1000);
+}
+function stopTimer(){ clearInterval(timerInterval); timerInterval=null; }
+function updateTimerBar(){
+  const pct = (timeLeft / DIFF[currentDiff].timeLimit) * 100;
+  timerBarEl.style.width = pct+'%';
+  timerBarEl.style.background = pct>50
+    ? 'linear-gradient(90deg,#00f5ff,#00ffb3)'
+    : pct>25
+    ? 'linear-gradient(90deg,#ffe600,#ff9900)'
+    : 'linear-gradient(90deg,#ff2d78,#ff0040)';
+}
+
+// ═══════════════════════════════════════════
+//  PALETTES
+// ═══════════════════════════════════════════
+const PAL=[
+  ['#00f5ff','#00b8cc','#9ff7ff'],
+  ['#ff2d78','#ff6fa8','#ffd0e4'],
+  ['#ffe600','#ffb300','#fff5b0'],
+  ['#b967ff','#d8a8ff','#9b4fff'],
+  ['#00ffb3','#00cc8e','#b0fff0'],
+  ['#ff6b2b','#ffaa80','#ff3300'],
+];
+
+// ═══════════════════════════════════════════
+//  ORB CLASS
+// ═══════════════════════════════════════════
+class Orb {
+  constructor(onScreen){
+    this.pal  = PAL[Math.floor(Math.random()*PAL.length)];
+    this.r    = 14 + Math.random()*19;
+    this.x    = this.r*2 + Math.random()*Math.max(1, W-this.r*4);
+    this.y    = onScreen ? (this.r + Math.random()*Math.max(1, H-this.r*2)) : (H+this.r+10);
+    this.baseVy = -(0.45 + Math.random()*0.75);
+    this.wob  = Math.random()*Math.PI*2;
+    this.ws   = 0.018 + Math.random()*0.018;
+    this.wa   = 0.5 + Math.random()*0.8;
+    this.puls = Math.random()*Math.PI*2;
+    this.ps   = 0.04 + Math.random()*0.03;
+    this.glow = Math.random()*Math.PI*2;
+    this.alpha = onScreen ? (0.2+Math.random()*0.5) : 0;
+    this.dead = false;
+    // dying animation
+    this.dying    = false;
+    this.dyingT   = 0;
+    this.dyingMax = 18; // frames to shrink
+  }
+  get vy(){ return this.baseVy * (DIFF[currentDiff]?.speedMult||1); }
+
+  update(){
+    if(this.dying){
+      this.dyingT++;
+      this.alpha = Math.max(0, 1 - this.dyingT/this.dyingMax);
+      if(this.dyingT>=this.dyingMax) this.dead=true;
+      return;
+    }
+    this.wob  += this.ws;
+    this.puls += this.ps;
+    this.glow += 0.025;
+    this.x    += Math.sin(this.wob)*this.wa*0.055;
+    this.y    += this.vy;
+    if(this.alpha<1) this.alpha=Math.min(1,this.alpha+0.022);
+    if(this.x<this.r)     this.x=this.r;
+    if(this.x>W-this.r)   this.x=W-this.r;
+    if(this.y<-(this.r*2.5)) this.dead=true;
+  }
+
+  draw(){
+    const t  = this.dying ? (1 - this.dyingT/this.dyingMax) : 1;
+    const pr = (this.r + Math.sin(this.puls)*2.2) * t;
+    if(pr <= 0.5) return;
+    const gi = 0.5 + 0.5*Math.sin(this.glow);
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.alpha);
+
+    // haze (no shadow here)
+    const hz = ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,pr*2.6);
+    hz.addColorStop(0, this.pal[0]+'33'); hz.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.arc(this.x,this.y,pr*2.6,0,Math.PI*2);
+    ctx.fillStyle = hz; ctx.fill();
+
+    // core with glow
+    const g = ctx.createRadialGradient(this.x-pr*.3,this.y-pr*.3,0,this.x,this.y,pr);
+    g.addColorStop(0,this.pal[2]); g.addColorStop(.55,this.pal[0]); g.addColorStop(1,this.pal[1]);
+    ctx.shadowBlur  = 18 + gi*14;
+    ctx.shadowColor = this.pal[0];
+    ctx.beginPath(); ctx.arc(this.x,this.y,pr,0,Math.PI*2);
+    ctx.fillStyle = g; ctx.fill();
+
+    // ALWAYS reset shadow immediately after use
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    // glint
+    const gl = ctx.createRadialGradient(this.x-pr*.38,this.y-pr*.38,0,this.x-pr*.2,this.y-pr*.2,pr*.55);
+    gl.addColorStop(0,'rgba(255,255,255,.75)'); gl.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.arc(this.x,this.y,pr,0,Math.PI*2);
+    ctx.fillStyle = gl; ctx.fill();
+
+    // ring (no shadow)
+    ctx.beginPath(); ctx.arc(this.x,this.y,pr+3,0,Math.PI*2);
+    ctx.strokeStyle = this.pal[0]+Math.round(gi*90).toString(16).padStart(2,'0');
+    ctx.lineWidth = 1.2; ctx.stroke();
+
+    ctx.restore();
+  }
+
+  hit(px,py){ return !this.dying && Math.hypot(px-this.x,py-this.y)<this.r+8; }
+
+  destroy(){
+    this.dying=true;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  SPARK
+// ═══════════════════════════════════════════
+class Spark{
+  constructor(x,y,pal){
+    const a=Math.random()*Math.PI*2, sp=2.5+Math.random()*6;
+    this.x=x; this.y=y; this.vx=Math.cos(a)*sp; this.vy=Math.sin(a)*sp;
+    this.life=1; this.decay=0.025+Math.random()*.04;
+    this.r=2+Math.random()*4; this.col=pal[Math.floor(Math.random()*pal.length)]; this.trail=[];
+  }
+  update(){
+    this.trail.push({x:this.x,y:this.y}); if(this.trail.length>7)this.trail.shift();
+    this.vx*=.94; this.vy*=.94; this.vy+=.09; this.x+=this.vx; this.y+=this.vy; this.life-=this.decay;
+  }
+  draw(){
+    ctx.save();
+    // trail (no shadow - too expensive)
+    for(let i=0;i<this.trail.length;i++){
+      ctx.beginPath(); ctx.arc(this.trail[i].x,this.trail[i].y,this.r*(i/this.trail.length)*.6,0,Math.PI*2);
+      ctx.fillStyle=this.col; ctx.globalAlpha=(i/this.trail.length)*this.life*.4; ctx.fill();
+    }
+    // core spark
+    ctx.shadowBlur  = 8;
+    ctx.shadowColor = this.col;
+    ctx.beginPath(); ctx.arc(this.x,this.y,this.r*this.life,0,Math.PI*2);
+    ctx.fillStyle=this.col; ctx.globalAlpha=this.life; ctx.fill();
+    ctx.shadowBlur  = 0;
+    ctx.shadowColor = 'transparent';
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+//  RING
+// ═══════════════════════════════════════════
+class Ring{
+  constructor(x,y,col){this.x=x;this.y=y;this.r=0;this.life=1;this.col=col;}
+  update(){this.r+=4.5;this.life-=.042;}
+  draw(){
+    ctx.save();
+    ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+    ctx.strokeStyle=this.col; ctx.lineWidth=2; ctx.globalAlpha=this.life*.75;
+    ctx.shadowBlur=12; ctx.shadowColor=this.col; ctx.stroke();
+    ctx.shadowBlur=0; ctx.shadowColor='transparent';
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════
+//  STARS & GRID (always draw)
+// ═══════════════════════════════════════════
+const STARS=Array.from({length:75},()=>({x:Math.random(),y:Math.random(),r:.4+Math.random()*1.1,t:Math.random()*Math.PI*2,sp:.003+Math.random()*.007}));
+function drawStars(){
+  ctx.save();
+  STARS.forEach(s=>{s.t+=s.sp;ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${.15+.18*Math.sin(s.t)})`;ctx.fill();});
+  ctx.restore();
+}
+function drawGrid(){
+  const gs=Math.max(38,Math.min(W,H)/14);
+  ctx.save();ctx.strokeStyle='rgba(0,245,255,0.032)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════
+//  GAME OBJECTS
+// ═══════════════════════════════════════════
+let orbs=[], sparks=[], rings=[];
+let spawnTimer=0;
+
+// ═══════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════
+let blockClick=false;
+canvas.addEventListener('touchstart',function(e){
+  e.preventDefault();
+  blockClick=true; setTimeout(()=>{blockClick=false;},500);
+  const t=e.changedTouches[0];
+  processClick(t.clientX,t.clientY);
+},{passive:false});
+canvas.addEventListener('click',function(e){
+  if(blockClick)return;
+  processClick(e.clientX,e.clientY);
+});
+
+function processClick(px,py){
+  if(gameState!=='playing') return;
+
+  // ripple
+  const rip=document.createElement('div'); rip.className='rip';
+  rip.style.cssText=`left:${px}px;top:${py}px;width:76px;height:76px;border:2px solid rgba(0,245,255,.6)`;
+  document.body.appendChild(rip); setTimeout(()=>rip.remove(),460);
+
+  // find topmost alive orb
+  let hitIdx=-1;
+  for(let i=orbs.length-1;i>=0;i--){
+    if(!orbs[i].dead && !orbs[i].dying && orbs[i].hit(px,py)){hitIdx=i;break;}
+  }
+
+  if(hitIdx!==-1){
+    const orb=orbs[hitIdx];
+
+    // trigger death animation on orb (it will shrink & disappear)
+    orb.destroy();
+
+    // explosion effects
+    for(let s=0;s<24;s++) sparks.push(new Spark(orb.x,orb.y,orb.pal));
+    rings.push(new Ring(orb.x,orb.y,orb.pal[0]));
+    rings.push(new Ring(orb.x,orb.y,orb.pal[1]));
+
+    // combo
+    combo++;
+    comboTick=COMBO_MS;
+    mult=Math.min(Math.floor(combo/3)+1,8);
+    if(combo>=3)flashCombo();
+    mvEl.textContent=`x${mult}`;
+    mtEl.classList.toggle('show',mult>1);
+
+    // score
+    const pts=Math.round(orb.r*mult*2);
+    score+=pts;
+    if(score>best){best=score;try{localStorage.setItem('pb',best);}catch(_){}}
+    svEl.textContent=score; bvEl.textContent=best;
+    floatScore(px,py,`+${pts}`,orb.pal[0]);
+
+    // bonus time on hard
+    if(currentDiff==='hard'){ timeLeft=Math.min(timeLeft+1, DIFF[currentDiff].timeLimit); updateTimerBar(); }
+
+    // xp
+    xp++;
+    if(xp>=xpMax){xp=0;xpMax=Math.round(xpMax*1.3);level++;lvEl.textContent=String(level).padStart(2,'0');flashMsg('LEVEL UP!','NAIK TINGKAT');}
+    xpEl.style.width=(xp/xpMax*100)+'%';
+
+    svEl.classList.remove('pop'); void svEl.offsetWidth; svEl.classList.add('pop');
+    setTimeout(()=>svEl.classList.remove('pop'),140);
+
+  } else {
+    // miss
+    combo=0; comboTick=0; mult=1;
+    mvEl.textContent='x1'; mtEl.classList.remove('show');
+    // flash miss
+    document.body.classList.remove('miss-flash'); void document.body.offsetWidth; document.body.classList.add('miss-flash');
+    setTimeout(()=>document.body.classList.remove('miss-flash'),300);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════
+let cbTO;
+const CLABELS=['','','','TRIPLE!','QUAD!','PENTA!','HEXA!','ULTRA!','LEGENDARY!'];
+function flashCombo(){
+  ctEl.textContent=`COMBO x${combo}!`;
+  clEl.textContent=CLABELS[Math.min(combo,CLABELS.length-1)]||'MANTAP!';
+  cbEl.classList.remove('show'); void cbEl.offsetWidth; cbEl.classList.add('show');
+  clearTimeout(cbTO); cbTO=setTimeout(()=>cbEl.classList.remove('show'),750);
+}
+function flashMsg(a,b){
+  ctEl.textContent=a; clEl.textContent=b;
+  cbEl.classList.remove('show'); void cbEl.offsetWidth; cbEl.classList.add('show');
+  clearTimeout(cbTO); cbTO=setTimeout(()=>cbEl.classList.remove('show'),1000);
+}
+function floatScore(x,y,txt,col){
+  const el=document.createElement('div'); el.className='fscore';
+  const fs=Math.max(12,Math.min(20,window.innerWidth*.025));
+  el.style.cssText=`left:${x}px;top:${y-18}px;font-size:${fs}px;color:${col};text-shadow:0 0 10px ${col}`;
+  el.textContent=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),870);
+}
+
+// keyboard shortcut
+document.addEventListener('keydown',e=>{
+  if(e.code==='Escape'||e.code==='KeyP'){
+    if(gameState==='playing') pauseGame();
+    else if(gameState==='paused') resumeGame();
+  }
+});
+
+// ═══════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════
+let last=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=last===0?16:Math.min(now-last,80);
+  last=now;
+
+  // ── HARD RESET canvas state every frame ──
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.globalAlpha   = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.shadowBlur    = 0;
+  ctx.shadowColor   = 'transparent';
+  ctx.filter        = 'none';
+
+  // clear
+  ctx.fillStyle='#050510';
+  ctx.fillRect(0,0,W,H);
+  drawStars();
+  drawGrid();
+
+  if(gameState==='playing'){
+    // combo decay
+    if(comboTick>0){
+      comboTick-=dt;
+      if(comboTick<=0){combo=0;mult=1;mvEl.textContent='x1';mtEl.classList.remove('show');}
+    }
+
+    // spawn
+    spawnTimer+=dt;
+    const cfg=DIFF[currentDiff];
+    if(spawnTimer>=cfg.spawnInterval){
+      spawnTimer=0;
+      // count only live (non-dying) orbs for spawn
+      const liveCount=orbs.filter(o=>!o.dying&&!o.dead).length;
+      if(liveCount<cfg.maxOrbs) orbs.push(new Orb(false));
+    }
+  }
+
+  // always draw objects (so dying orbs finish their animation even on pause)
+  orbs   = orbs.filter(o=>{o.update();o.draw();return !o.dead;});
+  sparks = sparks.filter(s=>{s.update();s.draw();return s.life>0;});
+  rings  = rings.filter(r=>{r.update();r.draw();return r.life>0;});
+}
+
+requestAnimationFrame(loop);
+
+// init diff desc
+selectDiff('medium');
+</script>
+</body>
+</html>
